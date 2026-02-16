@@ -1,0 +1,16 @@
+version: 1
+
+output:
+  language: "en"
+  report_verbosity: "medium"
+  include_momentum_only_list: true
+  tradingview_export: true
+
+universe:
+  min_price: 2.0
+  min_avg_dollar_volume_20d: 20000000
+
+risk_gate:
+  min_rr: 2.0
+  target_profit_min: 500
+  target_profit_max: 1000

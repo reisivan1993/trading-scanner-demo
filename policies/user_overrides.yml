@@ -1,0 +1,18 @@
+version: 1
+
+output:
+  language: "he"
+  report_verbosity: "short"
+
+universe:
+  min_price: 10.0
+  min_avg_dollar_volume_20d: 50000000
+  exclude_gap_days:
+    enabled: true
+    gap_pct_threshold: 5.0
+
+risk_gate:
+  min_rr: 2.5
+  max_stop_pct_of_price: 4.0
+  target_profit_min: 500
+  target_profit_max: 1000

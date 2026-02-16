@@ -1,0 +1,19 @@
+version: 1
+
+risk_gate_extensions:
+  max_stop_dollars: 250.0
+  require_stop_near_structure: true
+
+market_structure_filters:
+  wick_ratio_max: 2.2
+
+short_rules:
+  require_breakdown_confirmation: true
+  min_breakdown_atr: 0.3
+  min_rvol: 1.6
+
+long_rules:
+  max_distance_from_support_atr: 1.2
+
+output_extensions:
+  momentum_only_min_score: 65

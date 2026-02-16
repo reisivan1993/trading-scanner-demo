@@ -1,0 +1,54 @@
+# COLD TRADER SCANNER CONFIG
+
+environment: "production"
+
+timezone:
+  market: "America/New_York"
+  local: "Asia/Jerusalem"
+
+provider:
+  name: "polygon"
+  max_retries: 3
+  backoff_seconds: 2
+  rate_limit_per_minute: 5
+
+universe:
+  source_file: "./data/universe/spy.txt"
+  max_tickers_per_run: 10
+
+schedule:
+  mode: "market_close_plus"
+  minutes_after_close: 10
+  fixed_time_israel: "19:30"
+  only_us_trading_days: true
+  use_market_calendar: true
+
+position:
+  size_usd: 10000
+
+risk_defaults:
+  min_rr: 2.0
+  target_profit_min: 500
+  target_profit_max: 1000
+  allow_penny: false
+
+policy:
+  default_file: "./policies/default.yml"
+  user_override_file: "./policies/user_overrides.yml"
+  advanced_override_file: "./policies/user_overrides_advanced.yml"
+  enable_advanced: true
+
+web_intelligence:
+  enabled: true
+  provider: "quercle"
+  lookback_days: 3
+  earnings_lookahead_days: 7
+
+output:
+  base_path: "./data/output"
+  language: "he"
+
+logging:
+  level: "INFO"
+  structured: true
+  log_rule_decisions: true

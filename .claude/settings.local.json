@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/pytest tests/unit/test_config.py -v)",
+      "Bash(.venv/Scripts/pytest:*)",
+      "Bash(npx --yes create-vite apps/ui --template react-ts)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(.venv/Scripts/uvicorn:*)",
+      "Bash(npm run dev:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell:*)",
+      "Bash(.venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(C:/Users/rsiva/PycharmProjects/trading-scanner-demo/.venv/Scripts/python.exe -m uvicorn:*)",
+      "Bash(python:*)",
+      "Bash(netstat:*)",
+      "Bash(timeout:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}
