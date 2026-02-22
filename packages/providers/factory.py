@@ -7,6 +7,7 @@ from packages.providers.alpaca_provider import AlpacaProvider
 from packages.providers.base import BaseProvider
 from packages.providers.csv_provider import CsvProvider
 from packages.providers.polygon_provider import PolygonProvider
+from packages.providers.yfinance_provider import YFinanceProvider
 
 
 def get_provider(config: AppConfig) -> BaseProvider:
@@ -39,7 +40,13 @@ def get_provider(config: AppConfig) -> BaseProvider:
     if name == "alpaca":
         return AlpacaProvider()
 
+    if name == "yfinance":
+        return YFinanceProvider(
+            universe_file=universe_file,
+            rate_limit_per_minute=config.provider.rate_limit_per_minute,
+        )
+
     raise ValueError(
         f"Unknown provider name: {name!r}. "
-        f"Supported providers: 'csv', 'polygon', 'alpaca'."
+        f"Supported providers: 'csv', 'polygon', 'alpaca', 'yfinance'."
     )

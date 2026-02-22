@@ -1,4 +1,5 @@
 import type { SetupResult } from "../types";
+import { SetupChart } from "./SetupChart";
 
 interface SetupDetailProps {
   result: SetupResult;
@@ -7,12 +8,25 @@ interface SetupDetailProps {
 export function SetupDetail({ result }: SetupDetailProps) {
   const { score, setup, patterns, checklist, web_intel_notes, basis } = result;
 
+  const entry = parseFloat(setup.entry);
+  const stop = parseFloat(setup.stop);
+  const target = parseFloat(setup.target_1);
+
   return (
     <tr className="detail-panel">
       <td colSpan={9}>
+        {/* Chart */}
+        <SetupChart
+          symbol={result.symbol}
+          entry={entry}
+          stop={stop}
+          target={target}
+          direction={result.direction}
+        />
+
         {basis && (
-          <p style={{ marginBottom: 16, color: "#b0b0c0", fontSize: 13, lineHeight: 1.5 }}>
-            <span style={{ color: "#4fc3f7", fontWeight: 600, marginRight: 6 }}>Basis:</span>
+          <p style={{ margin: "16px 0 16px", color: "#b0b0c0", fontSize: 13, lineHeight: 1.5 }}>
+            <span style={{ color: "#2962FF", fontWeight: 600, marginRight: 6 }}>Basis:</span>
             {basis}
           </p>
         )}

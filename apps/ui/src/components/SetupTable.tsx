@@ -79,13 +79,18 @@ export function SetupTable({ results, language = "en" }: SetupTableProps) {
 
   return (
     <div>
-      <input
-        type="text"
-        className="filter-input"
-        placeholder="Filter by symbol or direction..."
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <div className="table-header-bar">
+        <input
+          type="text"
+          className="filter-input"
+          placeholder="Filter by symbol or direction…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <span className="table-result-count">
+          {sorted.length} of {results.length} setups
+        </span>
+      </div>
       <table
         className="setup-table"
         style={{ direction: language === "he" ? "rtl" : "ltr" }}

@@ -207,3 +207,145 @@ pytest --durations=10
 4. Is it tested? New logic has tests, existing tests still pass?
 5. Is it minimal? No dead code, no unused imports, no over-engineering?
 6. Is it consistent? Follows existing patterns in the codebase?
+
+---
+
+## Assignment Development Cycle
+
+> **Powered by [obra/superpowers](https://github.com/obra/superpowers) v4.3.1** — installed at `~/.claude/` (user scope, active in all sessions).
+> Skills trigger automatically. Slash commands: `/brainstorm`, `/write-plan`, `/execute-plan`.
+
+Every task — bug fix, feature, refactor — follows this cycle without exception.
+Each phase maps to a specific superpowers skill. Skip no phase.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. UNDERSTAND      2. EXPLORE       3. PLAN                         │
+│  (brainstorming)    (Explore agent)  (writing-plans + git worktree)  │
+│        ↓                                                             │
+│  4. IMPLEMENT       5. TEST          6. REVIEW        7. COMMIT      │
+│  (subagent-driven)  (TDD skill)      (code-review)    (finish-branch)│
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase 1 — Understand `[skill: brainstorming]`
+- Trigger: `/brainstorm` or describe the feature/bug to Claude.
+- Claude asks clarifying questions before touching any file.
+- Output: a saved design document with acceptance criteria.
+- Gate: you've signed off on the design document section-by-section.
+- **Do not skip for "small" tasks.** Even a 3-line change has context.
+
+### Phase 2 — Explore `[Explore sub-agent]`
+- Dispatch an **Explore** sub-agent to map the affected code area.
+- Find: entry points, callers, data models touched, existing tests.
+- Read actual files — never assume from filenames alone.
+- Gate: you can name every file that will change and why.
+
+### Phase 3 — Plan `[skill: writing-plans + using-git-worktrees]`
+- Trigger: `/write-plan` after design approval.
+- Plan breaks work into tasks ≤5 minutes each, with exact file paths and verification steps.
+- A git worktree is created for the branch — isolated, clean slate.
+- Gate: plan reviewed and approved; worktree baseline tests pass.
+
+### Phase 4 — Implement `[skill: subagent-driven-development]`
+- Trigger: `/execute-plan` or Claude dispatches subagents automatically.
+- Each task gets a fresh subagent: two-stage review (spec compliance → code quality).
+- One logical change per commit. Never batch unrelated edits.
+- Gate: all linters pass (`ruff check`, `mypy`); no `print()` in production code.
+
+### Phase 5 — Test `[skill: test-driven-development]`
+- RED-GREEN-REFACTOR cycle enforced. Tests written before implementation.
+- Cover: happy path, edge cases, error paths for every new function.
+- For this project: `pytest tests/unit/ -x` and verify coverage doesn't drop.
+- Gate: all tests green; code written before a test is deleted and rewritten.
+
+### Phase 6 — Review `[skill: requesting-code-review + verification-before-completion]`
+- Self-review against the Code Review Checklist above, plus:
+  - [ ] No hardcoded secrets, URLs, or magic numbers
+  - [ ] All new public functions have type annotations
+  - [ ] `ruff check --fix` and `mypy` both pass clean
+  - [ ] Git diff is the minimal set of changes needed
+- Verify it's actually fixed/working before declaring done — no assumptions.
+
+### Phase 7 — Commit & Finish `[skill: finishing-a-development-branch]`
+- Conventional commit: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
+- Message describes **why**, not what.
+- Skill presents options: merge / open PR / keep branch / discard. Choose explicitly.
+- Worktree is cleaned up after branch finalization.
+
+---
+
+## Sub-Agent Usage Guide
+
+> Superpowers skills and Claude Code sub-agents are complementary.
+> Skills define **what** workflow to follow. Sub-agents define **who** does the work.
+
+Sub-agents protect the main context window and parallelize independent work.
+**Rule:** right agent for the right job; never duplicate work across agents.
+
+### Agent Types & When to Use Them
+
+| Agent | Superpowers Skill | Use When | Do NOT Use When |
+|-------|-------------------|----------|-----------------|
+| **Explore** | Phase 2 (Explore) | Mapping unfamiliar code, finding all callers, "how does X work?" | You already know the exact file/line — use Read/Grep directly |
+| **Plan** | Phase 3 (writing-plans) | Architectural decisions, multi-file change design | Single-file changes with obvious implementation |
+| **Bash** | Phases 4–7 (implement/test/commit) | Running pytest, ruff, mypy, git, docker, npm | Reading/writing files — use Read/Edit/Write instead |
+| **general-purpose** | Any research phase | Multi-step research needing several search+read rounds | Simple targeted searches — use Glob/Grep directly |
+
+### Parallelism Rules
+
+**Run in parallel** when tasks are independent (no shared output):
+```
+# Good — independent codebase explorations
+[Explore: how does risk_gate work?]  ←─ parallel ─→  [Explore: how does scoring work?]
+
+# Good — independent quality checks
+[Bash: ruff check packages/]  ←─ parallel ─→  [Bash: mypy packages/]
+```
+
+**Run sequentially** when output feeds input:
+```
+# Required order
+[brainstorming] → approve design → [writing-plans] → approve plan
+    → [subagent-driven-development] → [pytest] → [finishing-a-development-branch]
+```
+
+### Project-Specific Skill Patterns
+
+**When adding a new provider** (e.g., a new market data source):
+1. `/brainstorm` — define the provider contract and edge cases
+2. `Explore`: "How does `yfinance_provider.py` implement `BaseProvider`?" + read `base.py` in parallel
+3. `/write-plan` — tasks: new provider class → factory registration → unit tests
+4. Implement via subagents + `pytest tests/unit/test_providers.py -x`
+
+**When fixing a bug in the pipeline**:
+1. `[skill: systematic-debugging]` — 4-phase root cause process, do not skip
+2. `Explore`: trace `orchestrator.py` → failing component
+3. Write **failing test first** (reproduce the bug), then fix
+4. `[skill: verification-before-completion]` — verify fix, not just "tests pass"
+
+**When adding a new trading skill** (e.g., new pattern detector in `packages/skills/`):
+1. `/brainstorm` — what signal? what inputs from `indicators.py`? acceptance criteria
+2. `Explore`: "How does `patterns.py` detect breakouts?"
+3. `/write-plan` — implement in `packages/skills/`, tests in `tests/unit/test_<skill>.py`, wire into `orchestrator.py` last
+4. TDD: RED (write test) → GREEN (minimal impl) → REFACTOR
+
+**When changing the API** (`apps/api/routes.py`):
+1. Read routes + `dependencies.py` in parallel
+2. Update `tests/integration/test_api.py` first (test-first)
+3. Implement route change, run `pytest tests/integration/ -x`
+4. `[skill: requesting-code-review]` before merging
+
+**When doing a broad refactor** (e.g., changing a core model):
+1. `Explore` (thorough): full impact across `packages/` and `apps/`
+2. `/write-plan` with explicit sequencing: change models → update callers → update tests
+3. `[skill: dispatching-parallel-agents]` for independent caller updates
+4. Never refactor and add features in the same commit
+
+### Background Agents
+
+Use `run_in_background=True` only when:
+- The task produces output you will read after finishing a parallel task (e.g., full test run while writing another file)
+- Long compile/lint job that doesn't block your next step
+
+Always read background output before committing. A green test you haven't read is not a green test.

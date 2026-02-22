@@ -13,7 +13,7 @@ class TimezoneConfig(BaseModel):
 
 
 class ProviderConfig(BaseModel):
-    name: Literal["polygon", "alpaca", "csv"] = "polygon"
+    name: Literal["polygon", "alpaca", "csv", "yfinance"] = "polygon"
     max_retries: int = 3
     backoff_seconds: float = 2.0
     rate_limit_per_minute: int = 120

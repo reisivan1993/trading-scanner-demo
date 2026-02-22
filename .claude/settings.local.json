@@ -21,7 +21,11 @@
       "Bash(python:*)",
       "Bash(netstat:*)",
       "Bash(timeout:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(claude plugin marketplace list:*)",
+      "Bash(claude plugin install:*)",
+      "Bash(claude plugin list:*)"
     ]
   }
 }

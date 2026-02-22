@@ -7,13 +7,13 @@ timezone:
   local: "Asia/Jerusalem"
 
 provider:
-  name: "polygon"
+  name: "yfinance"
   max_retries: 3
   backoff_seconds: 2
-  rate_limit_per_minute: 5
+  rate_limit_per_minute: 30
 
 universe:
-  source_file: "./data/universe/spy.txt"
+  source_file: "./data/universe/stocks.txt"
   max_tickers_per_run: 10
 
 schedule:

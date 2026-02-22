@@ -22,6 +22,68 @@ _latest_run_id: str | None = None
 _latest_strategy_run_ids: dict[str, str] = {}
 
 
+@router.get("/chart/{symbol}")
+async def get_chart_data(
+    symbol: str,
+    period: str = "6mo",
+    interval: str = "1d",
+) -> dict[str, Any]:
+    """Fetch OHLCV candle data for charting via yfinance."""
+    import yfinance as yf
+    import asyncio
+
+    clean_symbol = symbol.upper()
+    if ":" in clean_symbol:
+        clean_symbol = clean_symbol.split(":", 1)[1]
+    clean_symbol = clean_symbol.rstrip("!")
+
+    loop = asyncio.get_event_loop()
+    try:
+        df = await loop.run_in_executor(
+            None,
+            lambda: yf.download(
+                clean_symbol,
+                period=period,
+                interval=interval,
+                progress=False,
+                auto_adjust=True,
+            ),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch data: {exc}")
+
+    if df is None or df.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {symbol}")
+
+    # Compute SMA20
+    close_series = df["Close"].squeeze()
+    sma20 = close_series.rolling(window=20).mean()
+
+    candles = []
+    sma20_data = []
+    for ts, row in df.iterrows():
+        t = ts.strftime("%Y-%m-%d")
+        candles.append({
+            "time": t,
+            "open": round(float(row["Open"]), 2),
+            "high": round(float(row["High"]), 2),
+            "low": round(float(row["Low"]), 2),
+            "close": round(float(row["Close"]), 2),
+        })
+        sma_val = sma20.get(ts)
+        if sma_val is not None and not (hasattr(sma_val, '__iter__') or str(sma_val) == 'nan'):
+            try:
+                sma20_data.append({"time": t, "value": round(float(sma_val), 2)})
+            except (ValueError, TypeError):
+                pass
+
+    return {
+        "symbol": clean_symbol,
+        "candles": candles,
+        "sma20": sma20_data,
+    }
+
+
 @router.post("/scan/run")
 async def run_scan(
     config: AppConfig = Depends(get_config),
