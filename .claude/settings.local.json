@@ -22,10 +22,26 @@
       "Bash(netstat:*)",
       "Bash(timeout:*)",
       "Bash(dir:*)",
-      "WebFetch(domain:github.com)",
-      "Bash(claude plugin marketplace list:*)",
-      "Bash(claude plugin install:*)",
-      "Bash(claude plugin list:*)"
+      "Bash(python3 -m pytest tests/unit/test_volume_analysis.py -v 2>&1)",
+      "Bash(which pytest && pytest --version 2>&1)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && pip3 install -e \".[dev]\" -q 2>&1 | tail -5)",
+      "Bash(pip3 install --user pytest pytest-asyncio pandas numpy pydantic 2>&1 | tail -5)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && python3 -m venv .venv && .venv/bin/pip install -e \".[dev]\" -q 2>&1 | tail -5)",
+      "Bash(.venv/bin/pytest tests/unit/test_volume_analysis.py -v 2>&1)",
+      "Bash(.venv/bin/pytest tests/unit/ -x --tb=short 2>&1)",
+      "Bash(.venv/bin/pytest tests/unit/ --ignore=tests/unit/test_providers.py -x --tb=short 2>&1)",
+      "Bash(.venv/bin/pytest tests/unit/ --ignore=tests/unit/test_providers.py --ignore=tests/unit/test_config.py --tb=short 2>&1)",
+      "Bash(.venv/bin/ruff check packages/skills/volume_analysis.py packages/core/models.py 2>&1)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && .venv/bin/ruff check packages/skills/volume_analysis.py packages/core/models.py 2>&1)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && .venv/bin/ruff check packages/skills/patterns.py packages/skills/scoring.py 2>&1\\\\)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && .venv/bin/pytest tests/unit/test_volume_analysis.py -v --tb=short 2>&1)",
+      "Bash(.venv/bin/pip install yfinance -q 2>&1 | tail -3)",
+      "Bash(cd /Users/reisivan/projects/trading-scanner-demo-836d24bd && .venv/bin/uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 2>&1)",
+      "Bash(curl -s http://localhost:8000/docs | head -5 && echo \"---\" && curl -s http://localhost:8000/openapi.json | python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(m.upper\\(\\), p\\) for p,ops in d['paths'].items\\(\\) for m in ops]\")",
+      "Bash(curl -s -X POST http://localhost:8000/scan/ticker/AAPL | python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(curl -s http://localhost:8000/scan/latest | python3 -c \"\nimport sys, json\nd = json.load\\(sys.stdin\\)\nr = d['results'][0]\nprint\\('Symbol:', r['symbol']\\)\nprint\\('Direction:', r['direction']\\)\nprint\\('Entry:', r['setup']['entry'], '| Stop:', r['setup']['stop'], '| T1:', r['setup']['target_1']\\)\nprint\\('RR:', r['setup']['rr_ratio'], '| Shares:', r['setup']['shares']\\)\nprint\\('Score:', r['score']['total']\\)\nprint\\(\\)\nprint\\(d['report_markdown'][:800]\\)\n\")",
+      "Bash(pkill -f \"vite\" 2>/dev/null; sleep 1; echo \"killed\")",
+      "Bash(.venv/bin/pytest tests/unit/ -x --ignore=tests/unit/test_config.py --ignore=tests/unit/test_providers.py -q 2>&1 | tail -5)"
     ]
   }
 }

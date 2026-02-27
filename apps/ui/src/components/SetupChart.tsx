@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createChart, type IChartApi, ColorType, LineStyle, CandlestickSeries, LineSeries } from "lightweight-charts";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8001";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface SetupChartProps {
     symbol: string;

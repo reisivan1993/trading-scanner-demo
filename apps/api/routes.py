@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+
+logger = logging.getLogger(__name__)
 
 from apps.api.dependencies import get_config, get_data_provider, get_policy, get_policy_engine
 from packages.core.config import AppConfig
@@ -82,6 +87,53 @@ async def get_chart_data(
         "candles": candles,
         "sma20": sma20_data,
     }
+
+
+@router.get("/scan/stream")
+async def scan_stream(
+    chunk_size: int = 10,
+    config: AppConfig = Depends(get_config),
+    policy: MergedPolicy = Depends(get_policy),
+    provider: BaseProvider = Depends(get_data_provider),
+    engine: PolicyEngine = Depends(get_policy_engine),
+) -> StreamingResponse:
+    """Stream scan results as Server-Sent Events, one chunk of tickers at a time."""
+    global _latest_run_id
+
+    orchestrator = ScanOrchestrator(
+        config=config,
+        provider=provider,
+        policy=policy,
+        policy_engine=engine,
+    )
+
+    async def event_generator():
+        last_result = None
+        try:
+            async for partial in orchestrator.run_streaming(chunk_size):
+                last_result = partial
+                payload = _serialize_scan_result(partial, config)
+                yield f"data: {json.dumps(payload)}\n\n"
+        except Exception:
+            logger.exception("Error during streaming scan")
+            yield f"event: error\ndata: {json.dumps({'error': 'Scan failed'})}\n\n"
+            return
+
+        if last_result is not None:
+            _scan_results[last_result.meta.run_id] = last_result
+            _latest_run_id = last_result.meta.run_id  # type: ignore[assignment]
+
+        yield "event: done\ndata: {}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/scan/run")

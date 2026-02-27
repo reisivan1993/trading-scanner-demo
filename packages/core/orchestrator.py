@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, AsyncGenerator
 
 import pandas as pd
 
@@ -190,65 +190,128 @@ class ScanOrchestrator:
         )
 
     async def run(self) -> ScanResult:
-        """Execute the full scanning pipeline."""
+        """Execute the full scanning pipeline in chunks, accumulating results."""
         meta = ScanRunMeta(started_at=datetime.now())
+        chunk_size = self.config.universe.max_tickers_per_run
 
-        # 1. Fetch universe
-        symbols = await self.provider.fetch_universe()
-        symbols = symbols[: self.config.universe.max_tickers_per_run]
-        logger.info("Loaded %d symbols", len(symbols))
+        # 1. Fetch full universe (no cap — chunk_size controls batch size)
+        all_symbols = await self.provider.fetch_universe()
+        logger.info("Loaded %d symbols total, chunk size=%d", len(all_symbols), chunk_size)
 
-        # 2. Fetch daily bars for all tickers to build universe items
-        universe_items = await self._build_universe_items(symbols)
+        # 2. Process in chunks of chunk_size, accumulating across all batches
+        accumulated_results: list[SetupResult] = []
+        total_filtered = 0
+        total_analyses = 0
 
-        # 3. Pre-filter universe via policy
-        filtered_items = self.policy_engine.pre_filter_universe(universe_items, self.policy)
-        filtered_symbols = [item.symbol for item in filtered_items]
-        logger.info("After pre-filter: %d symbols", len(filtered_symbols))
+        for batch_start in range(0, len(all_symbols), chunk_size):
+            chunk = all_symbols[batch_start : batch_start + chunk_size]
+            batch_num = batch_start // chunk_size + 1
+            total_batches = (len(all_symbols) + chunk_size - 1) // chunk_size
+            logger.info("Chunk %d/%d: %s", batch_num, total_batches, chunk)
 
-        # 4. Fetch full data and run analysis for each ticker
-        analyses = await self._analyze_tickers(filtered_symbols)
+            universe_items = await self._build_universe_items(chunk)
+            filtered_items = self.policy_engine.pre_filter_universe(universe_items, self.policy)
+            filtered_symbols = [item.symbol for item in filtered_items]
+            total_filtered += len(filtered_symbols)
 
-        # 5. Post-features hook
-        analyses = self.policy_engine.post_features(analyses, self.policy)
+            analyses = await self._analyze_tickers(filtered_symbols)
+            analyses = self.policy_engine.post_features(analyses, self.policy)
+            total_analyses += len(analyses)
 
-        # 6. Generate setups and run risk gate
-        results: list[SetupResult] = []
-        for analysis in analyses:
-            setup_result = self._process_analysis(analysis)
-            if setup_result is not None:
-                results.append(setup_result)
+            for analysis in analyses:
+                setup_result = self._process_analysis(analysis)
+                if setup_result is not None:
+                    accumulated_results.append(setup_result)
 
-        # 7. Pre/post risk gate hooks
-        results = self.policy_engine.pre_risk_gate(results, self.policy)
-        results = self.policy_engine.post_risk_gate(results, self.policy)
+        # 3. Apply policy hooks on combined results
+        accumulated_results = self.policy_engine.pre_risk_gate(accumulated_results, self.policy)
+        accumulated_results = self.policy_engine.post_risk_gate(accumulated_results, self.policy)
 
-        # 8. Pre/post score hooks
-        results = self.policy_engine.pre_score(results, self.policy)
-        results = self.policy_engine.post_score(results, self.policy)
+        accumulated_results = self.policy_engine.pre_score(accumulated_results, self.policy)
+        accumulated_results = self.policy_engine.post_score(accumulated_results, self.policy)
 
-        # 9. Rank by score
-        results = self.policy_engine.pre_rank(results, self.policy)
-        results.sort(key=lambda r: r.score.total, reverse=True)
-        for i, r in enumerate(results):
+        # 4. Rank combined results
+        accumulated_results = self.policy_engine.pre_rank(accumulated_results, self.policy)
+        accumulated_results.sort(key=lambda r: r.score.total, reverse=True)
+        for i, r in enumerate(accumulated_results):
             r.rank = i + 1
-        results = self.policy_engine.post_rank(results, self.policy)
+        accumulated_results = self.policy_engine.post_rank(accumulated_results, self.policy)
 
-        # 10. Build final result
         meta.completed_at = datetime.now()
-        meta.tickers_scanned = len(filtered_symbols)
-        meta.setups_found = len(analyses)
-        meta.setups_passed_risk = len(results)
+        meta.tickers_scanned = total_filtered
+        meta.setups_found = total_analyses
+        meta.setups_passed_risk = len(accumulated_results)
 
-        cash_is_position = len(results) == 0
+        cash_is_position = len(accumulated_results) == 0
         banner = "Cash is a position." if cash_is_position else ""
 
         return ScanResult(
             meta=meta,
-            results=results,
+            results=accumulated_results,
             cash_is_position=cash_is_position,
             banner_message=banner,
         )
+
+    async def run_streaming(self, chunk_size: int = 10) -> AsyncGenerator[ScanResult, None]:
+        """Yield a partial ScanResult after each chunk of chunk_size tickers.
+
+        Intermediate yields contain ranked results seen so far.
+        The final yield applies the full policy hook pipeline.
+        """
+        meta = ScanRunMeta(started_at=datetime.now())
+        all_symbols = await self.provider.fetch_universe()
+        total = len(all_symbols)
+        logger.info("Streaming scan: %d symbols in chunks of %d", total, chunk_size)
+
+        accumulated: list[SetupResult] = []
+        tickers_scanned = 0
+
+        for batch_start in range(0, total, chunk_size):
+            chunk = all_symbols[batch_start : batch_start + chunk_size]
+            is_last = batch_start + chunk_size >= total
+
+            universe_items = await self._build_universe_items(chunk)
+            filtered = self.policy_engine.pre_filter_universe(universe_items, self.policy)
+            filtered_symbols = [item.symbol for item in filtered]
+            tickers_scanned += len(filtered_symbols)
+
+            analyses = await self._analyze_tickers(filtered_symbols)
+            analyses = self.policy_engine.post_features(analyses, self.policy)
+
+            for analysis in analyses:
+                result = self._process_analysis(analysis)
+                if result is not None:
+                    accumulated.append(result)
+
+            if is_last:
+                ranked: list[SetupResult] = self.policy_engine.pre_risk_gate(accumulated, self.policy)
+                ranked = self.policy_engine.post_risk_gate(ranked, self.policy)
+                ranked = self.policy_engine.pre_score(ranked, self.policy)
+                ranked = self.policy_engine.post_score(ranked, self.policy)
+                ranked = self.policy_engine.pre_rank(ranked, self.policy)
+                ranked.sort(key=lambda r: r.score.total, reverse=True)
+                for i, r in enumerate(ranked):
+                    r.rank = i + 1
+                ranked = self.policy_engine.post_rank(ranked, self.policy)
+                meta.completed_at = datetime.now()
+            else:
+                ranked = sorted(accumulated, key=lambda r: r.score.total, reverse=True)
+                for i, r in enumerate(ranked):
+                    r.rank = i + 1
+
+            yield ScanResult(
+                meta=ScanRunMeta(
+                    run_id=meta.run_id,
+                    started_at=meta.started_at,
+                    completed_at=meta.completed_at,
+                    tickers_scanned=tickers_scanned,
+                    setups_found=len(ranked),
+                    setups_passed_risk=len(ranked),
+                ),
+                results=list(ranked),
+                cash_is_position=not ranked,
+                banner_message="Cash is a position." if not ranked else "",
+            )
 
     async def _build_universe_items(self, symbols: list[str]) -> list[UniverseItem]:
         """Fetch daily bars and build universe items for pre-filtering."""

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -121,3 +121,60 @@ class ScanResult(BaseModel):
     results: list[SetupResult] = Field(default_factory=list)
     cash_is_position: bool = False
     banner_message: str = ""
+
+
+class VolumeConditionTag(StrEnum):
+    HEALTHY_MOVE = "healthy_move"
+    EFFORT_NO_RESULT = "effort_no_result"
+    NO_SUPPLY = "no_supply"
+    NO_DEMAND = "no_demand"
+    NEUTRAL = "neutral"
+
+
+class VSAPatternTag(StrEnum):
+    STOPPING_VOLUME = "stopping_volume"
+    BUYING_CLIMAX = "buying_climax"
+    NO_SUPPLY_TEST = "no_supply_test"
+    NO_DEMAND_TEST = "no_demand_test"
+
+
+class BarVolumeCondition(BaseModel, frozen=True):
+    bar_index: int
+    vol_rel: float
+    spread_rel: float
+    close_pos: float
+    condition: VolumeConditionTag
+
+
+class VSASignal(BaseModel, frozen=True):
+    pattern: VSAPatternTag
+    bar_index: int
+    direction: Literal["bullish", "bearish"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    description: str = ""
+
+
+class VolumeDivergence(BaseModel, frozen=True):
+    divergence_type: Literal["bullish", "bearish"]
+    lookback_bars: int
+    confidence: float = Field(ge=0.0, le=1.0)
+    description: str = ""
+
+
+class BreakoutValidity(BaseModel, frozen=True):
+    level: Decimal
+    direction: Literal["long", "short"]
+    is_valid: bool
+    vol_rel: float
+    spread_rel: float
+    reason: str
+
+
+class VolumeAnalysisResult(BaseModel, frozen=True):
+    conditions: list[BarVolumeCondition]
+    vsa_signals: list[VSASignal]
+    divergences: list[VolumeDivergence]
+    breakout_signals: list[BreakoutValidity]
+    bias: Literal["bullish", "bearish", "neutral"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasons: list[str]
